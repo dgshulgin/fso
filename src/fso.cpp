@@ -3,15 +3,15 @@
 
 #include <lua.hpp>
 
+#include "error.h"
+
 #ifdef _WIN32
 
-// Actually, it means "I'm usign Windows API"
-// Use the Windows-specific export attribute
 #define LIB_EXPORT __declspec(dllexport)
 
 #elif __linux__
 
-// Use the GCC-specific export attribute
+// GCC-specific export attribute
 #define LIB_EXPORT __attribute__((visibility("default")))
 
 #endif
@@ -37,20 +37,41 @@ static int lcd(lua_State* state) {
     
     setlocale(LC_ALL, "en_US.UTF-8");
 
-    const char* arg_path = luaL_checkstring(state, 1);    
+    // проверка кол-ва и типа аргументов
+    int num_args = lua_gettop(state);
+    if (num_args == 0) {
+        // вызов функции cd без аргументов
+        // не меняем каталог, возвращаем true
+        lua_pushboolean(state, 1);
+        return 1;
+
+    } else if(num_args > 1) {
+        // ошибка, кол-во аргументов > 1
+        lua_pushstring(state, efso::EArgsExceeeded);
+        lua_error(state);
+    }
+
+    int arg_type = lua_type(state, 1);
+    if (arg_type != LUA_TSTRING) {
+        // ошибка, тип аргумента не является строкой
+        lua_pushstring(state, efso::EWrongArgType);
+        lua_error(state);
+    }
+
+    const char* arg_path = lua_tostring(state,1);
 
     std::filesystem::path pp{arg_path};
 
     std::error_code ec;
     std::filesystem::current_path(pp, ec);
     if (ec) {
-        // error
-        lua_pushnil(state);
+        // ошибка при обращении к файловой системе
+        // пробрасываем ее
         lua_pushstring(state, ec.message().c_str());
-        return 2;
+        lua_error(state);
     }
 
-    // succeeded
+    // все хорошо и возвращаем true
     lua_pushboolean(state, 1);
     return 1;
 }
