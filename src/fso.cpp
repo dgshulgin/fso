@@ -80,22 +80,41 @@ static int lmkdir(lua_State* state) {
 
     setlocale(LC_ALL, "en_US.UTF-8"); 
 
-    const char* arg_path = luaL_checkstring(state, 1);
+    // проверка кол-ва и типа аргументов
+    int num_args = lua_gettop(state);
+    if (num_args == 0) {
+        // вызов функции mkdir без аргументов, ошибка
+        lua_pushstring(state, efso::EArgsEmpty);
+        lua_error(state);
+    };
 
-    std::filesystem::path pp{ arg_path };
+    // допустима передача нескольких аргументов
+    for (int arg=1;arg <= num_args;arg++) {
 
-    std::error_code ec;
-    std::filesystem::create_directory(pp, ec);
-    if (ec) {
-        // error
-        lua_pushnil(state);
-        lua_pushstring(state, ec.message().c_str());
-        return 2;
-    }
+        int arg_type = lua_type(state, arg);
+        if (arg_type != LUA_TSTRING) {
+            // ошибка, тип аргумента не является строкой
+            lua_pushstring(state, efso::EWrongArgType);
+            lua_error(state);
+        };
+        
+        const char* arg_path = lua_tostring(state, arg);
 
-    // succeeded
+        std::filesystem::path pp{ arg_path };
+
+        std::error_code ec;
+        //std::filesystem::create_directory(pp, ec);
+        std::filesystem::create_directories(pp, ec);
+        if (ec) {
+            // ошибка при обращении к файловой системе
+            // пробрасываем ее
+            lua_pushstring(state, ec.message().c_str());
+            lua_error(state);
+        }        
+    };
+
+    // все хорошо и возвращаем true
     lua_pushboolean(state, 1);
-
     return 1;
 }
 
