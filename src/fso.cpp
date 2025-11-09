@@ -5,6 +5,8 @@
 
 #include "error.h"
 
+#include <iostream>
+
 #ifdef _WIN32
 
 #define LIB_EXPORT __declspec(dllexport)
@@ -74,6 +76,52 @@ static int lcd(lua_State* state) {
     // все хорошо и возвращаем true
     lua_pushboolean(state, 1);
     return 1;
+}
+
+// удаляет файлы и каталоги с подкаталогами
+static int lremove(lua_State* state) {
+
+    setlocale(LC_ALL, "en_US.UTF-8"); 
+
+    // проверка кол-ва и типа аргументов
+    int num_args = lua_gettop(state);
+    if (num_args == 0) {
+        // вызов функции без аргументов, ошибка
+        lua_pushstring(state, efso::EArgsEmpty);
+        lua_error(state);
+    };
+
+    std::uintmax_t numDeleted{0}; // кол-во фактически удаленных
+
+    // допустима передача нескольких аргументов
+    for (int arg=1;arg <= num_args;arg++) {
+
+        int arg_type = lua_type(state, arg);
+        if (arg_type != LUA_TSTRING) {
+            // ошибка, тип аргумента не является строкой
+            lua_pushstring(state, efso::EWrongArgType);
+            lua_error(state);
+        };
+        
+        const char* arg_path = lua_tostring(state, arg);
+
+        std::filesystem::path pp{ arg_path };
+
+        std::error_code ec;
+        numDeleted += std::filesystem::remove_all(pp, ec);
+        if (ec) {
+            // ошибка при обращении к файловой системе
+            // пробрасываем ее
+            lua_pushstring(state, ec.message().c_str());
+            lua_error(state);
+        }  
+    };
+
+    // все хорошо, возвращаем true и кол-во удаленных элементов
+    // local ok, ret = fso.remove(folder)
+    lua_pushinteger(state, numDeleted);
+    lua_pushboolean(state, 1);
+    return 2;
 }
 
 // возвращает каталог для работы с временными файлами
@@ -216,6 +264,7 @@ const struct luaL_Reg fsolib[] = {
     { "mkdir",   lmkdir    },
     { "dir",     ldir_init },
     { "temp",    ltemp     },
+    { "remove", lremove     },
     { nullptr,   nullptr   }
 };
 
