@@ -76,6 +76,30 @@ static int lcd(lua_State* state) {
     return 1;
 }
 
+// возвращает каталог для работы с временными файлами
+static int ltemp(lua_State* state) {
+    
+    setlocale(LC_ALL, "en_US.UTF-8"); 
+
+    std::error_code ec;
+    std::filesystem::path path = std::filesystem::temp_directory_path(ec);
+    if (ec) {
+        // ошибка при обращении к файловой системе
+        // пробрасываем ее
+        lua_pushstring(state, ec.message().c_str());
+        lua_error(state);
+    } 
+
+    #ifdef _WIN32
+        std::string sp = path.u8string();
+    #elif linux
+        std::string sp = path.string();
+    #endif
+    
+    lua_pushstring(state, sp.c_str());
+    return 1;
+}
+
 static int lmkdir(lua_State* state) {
 
     setlocale(LC_ALL, "en_US.UTF-8"); 
@@ -104,7 +128,7 @@ static int lmkdir(lua_State* state) {
 
         std::error_code ec;
         //std::filesystem::create_directory(pp, ec);
-        std::filesystem::create_directories(pp, ec);
+        std::filesystem::create_directories (pp, ec);
         if (ec) {
             // ошибка при обращении к файловой системе
             // пробрасываем ее
@@ -187,11 +211,12 @@ static int ldir_path(lua_State* state)
 }
 
 const struct luaL_Reg fsolib[] = {
-    {"pwd",     lpwd},
-    {"cd",      lcd},
-    {"mkdir",   lmkdir},
-    { "dir",    ldir_init},
-    {nullptr,   nullptr}
+    { "pwd",     lpwd      },
+    { "cd",      lcd       },
+    { "mkdir",   lmkdir    },
+    { "dir",     ldir_init },
+    { "temp",    ltemp     },
+    { nullptr,   nullptr   }
 };
 
 extern "C" {
